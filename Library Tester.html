@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      .passed {
+        color: black;
+        border-width: 2px;
+        border-style: solid;
+        border-color: black;
+      }
+      .failed {
+        color: red;
+        border-width: 2px;
+        border-style: solid;
+        border-color: black;
+      }
+    </style>
+
+    <style>
+      input[type="checkbox"] {
+        display: none;
+      }
+      .wrap-collabsible {
+        margin: 0.5rem 0;
+      }
+      .lbl-toggle[test="passed"] {
+        display: block;
+        font-weight: bold;
+        font-family: monospace;
+        font-size: 1.2rem;
+        text-align: left;
+        padding: 0.2rem;
+        color: #ddd;
+        background: #0069ff;
+        cursor: pointer;
+      }
+      .lbl-toggle[test="failed"] {
+        display: block;
+        font-weight: bold;
+        font-family: monospace;
+        font-size: 1.2rem;
+        text-align: left;
+        padding: 0.2rem;
+        color: #ddd;
+        background: #ff0400;
+        cursor: pointer;
+      }
+      .lbl-toggle:hover {
+        color: #fff;
+      }
+      .lbl-toggle::before {
+        content: " ";
+        display: inline-block;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+        border-left: 5px solid currentColor;
+        vertical-align: middle;
+        margin-right: 0.7rem;
+        transform: translateY(-2px);
+        transition: transform 0.2s ease-out;
+      }
+      .toggle:checked + .lbl-toggle::before {
+        transform: rotate(90deg) translateX(-3px);
+      }
+      .collapsible-content {
+        max-height: 0px;
+        overflow: hidden;
+        transition: max-height 0.25s ease-in-out;
+      }
+      .toggle:checked + .lbl-toggle + .collapsible-content {
+        max-height: 350px;
+      }
+      .toggle:checked + .lbl-toggle {
+        border-bottom-right-radius: 0;
+        border-bottom-left-radius: 0;
+      }
+      .collapsible-content .content-inner {
+        background: rgba(0, 105, 255, 0.2);
+        border-bottom: 1px solid rgba(0, 105, 255, 0.45);
+        padding: 0.5rem 1rem;
+      }
+      .collapsible-content p {
+        margin-bottom: 0;
+      }
+    </style>
+    <script>
+      const URL = "http://localhost:3000/books";
+
+      var collapsible_id = 1;
+      function makeCollapsible(title, titleattr, content) {
+        let s = '<div class="wrap-collabsible">';
+        s +=
+          '<input id="collapsible' +
+          collapsible_id +
+          '" class="toggle" type="checkbox">';
+        s +=
+          '<label for="collapsible' +
+          collapsible_id +
+          '" class="lbl-toggle" test="' +
+          titleattr +
+          '">' +
+          title +
+          "</label>";
+        s += '<div class="collapsible-content">';
+        s += '<div class="content-inner">' + content + "</p></div></div></div>";
+        document.write(s);
+        collapsible_id += 1;
+      }
+
+      function makeElement(element, content) {
+        return "<" + element + ">" + content + "</" + element + ">";
+      }
+
+      function bold(s) {
+        return makeElement("b", s);
+      }
+
+      function ResponseSync(method, thisurl, json) {
+        let request = new XMLHttpRequest();
+        request.open(method, thisurl, false);
+        if (json == undefined) request.send();
+        else {
+          request.setRequestHeader("Content-Type", "application/json");
+          request.send(json);
+        }
+        return { text: request.responseText, status: request.status };
+      }
+
+      function makeList(title, booklist) {
+        let items = "";
+        for (var x of booklist)
+          items += makeElement("li", `id: ${x.id}  title: ${x.title}`);
+        return makeElement("h4", title) + makeElement("ul", items);
+      }
+
+      function makeObject(title, obj) {
+        let items = "";
+        for (const property in obj)
+          items += makeElement("li", `${property}: ${obj[property]}`);
+        return makeElement("h4", title) + makeElement("ul", items);
+      }
+
+      function getBooks(expectedqty, query) {
+        let error = false;
+        let text = "";
+        let thisurl = URL + query;
+        let title = "GET " + thisurl;
+        let u = makeElement("b", title);
+        text += makeElement("p", `Should get ${expectedqty} books from ${u}`);
+        let rt = ResponseSync("GET", thisurl);
+        text += makeElement("p", `Returned: ${rt.status} ${rt.text}`);
+        if (rt.status != 200) error = true;
+        else {
+          let books = JSON.parse(rt.text);
+          if (books.length != expectedqty) error = true;
+          text += makeList(
+            `Books:  expected ${expectedqty} got ${books.length}`,
+            books
+          );
+        }
+        makeCollapsible(title, error ? "failed" : "passed", text);
+      }
+
+      function bookvalidator(id, rtext, obj) {
+        let error = false;
+        let items = "";
+        const book = JSON.parse(rtext);
+        const deets = makeObject("Book id: " + id + " details", book);
+        for (const prop in obj) {
+          items += makeElement(
+            "li",
+            `Expected ${prop}: ${obj[prop]} got ${prop}: ${book[prop]}`
+          );
+          if (obj[prop] != book[prop]) error = true;
+        }
+        return { Error: error, Text: deets + makeElement("ul", items) };
+      }
+
+      function oneBook(method, id, obj, status, json, validator) {
+        let error = false;
+        let text = "";
+        let thisurl = id == undefined ? URL : URL + "/" + id;
+        let title = method + " " + thisurl + "&nbsp;&nbsp;Expect: " + status;
+        try {
+          text += makeElement("p", `${method} ${bold(thisurl)}`);
+          if (json != undefined) text += makeElement("p", json);
+          var rt = ResponseSync(method, thisurl, json);
+          text += makeElement(
+            "p",
+            `Expected http status: ${status}  Got: ${rt.status} ${rt.text}`
+          );
+          error = rt.status != status;
+          if (!error && validator != undefined) {
+            const validated = bookvalidator(id, rt.text, obj);
+            error = validated.Error;
+            text += validated.Text;
+          }
+        } catch (ex) {
+          error = true;
+          text += mekeElement("p", `Exception: ${ex}`);
+        }
+        makeCollapsible(title, error ? "failed" : "passed", text);
+      }
+
+      function getBook(id, obj, shouldsucceed) {
+        if (shouldsucceed)
+          oneBook("GET", id, obj, 200, undefined, bookvalidator);
+        else oneBook("GET", id, undefined, 404);
+      }
+
+      function putBook(id, obj, shouldsucceed) {
+        const status = shouldsucceed ? 200 : 404;
+        const json = JSON.stringify(obj);
+        oneBook("PUT", id, obj, status, json);
+      }
+
+      function postBook(obj, shouldsucceed) {
+        const status = shouldsucceed ? 201 : 403;
+        const json = JSON.stringify(obj);
+        oneBook("POST", undefined, obj, status, json);
+      }
+
+      function deleteBook(id, shouldsucceed) {
+        const status = shouldsucceed ? 200 : 204;
+        oneBook("DELETE", id, undefined, status, undefined);
+      }
+    </script>
+  </head>
+  <body>
+    <script>
+      var book2 = { id: "2", avail: true };
+      var book4 = { id: "4", avail: false };
+      var book77 = {
+        id: "77",
+        title: "Bedtime For Mongo",
+        author: "Dee Nide",
+        publisher: "Random House",
+        isbn: "978-3-16-146660-0",
+        avail: true,
+      };
+      var checkedout = { avail: false, who: "Rick" };
+      var shouldwork = true;
+      var shouldfail = false;
+    </script>
+
+    <h1>Test the GETs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6 tests</h1>
+
+    <script>
+      getBooks(6, "");
+    </script>
+    <!-- should be 6 books total      -->
+    <script>
+      getBook("2", book2, shouldwork);
+    </script>
+    <!-- Book 2 should be avail       -->
+    <script>
+      getBook("4", book4, shouldwork);
+    </script>
+    <!-- Book 4 should be checked out -->
+    <script>
+      getBook("99", book4, shouldfail);
+    </script>
+    <!-- Book 4 should be checked out -->
+    <script>
+      getBooks(3, "?avail=true");
+    </script>
+    <!-- should be 3 available        -->
+    <script>
+      getBooks(3, "?avail=false");
+    </script>
+    <!-- should be 3 checked out      -->
+
+    <h1>Test the POST&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5 tests</h1>
+
+    <script>
+      postBook(book77, shouldwork);
+    </script>
+    <!-- add book 7                 -->
+    <script>
+      postBook(book2, shouldfail);
+    </script>
+    <!-- add book 2, already exists -->
+    <script>
+      getBook("77", book77, shouldwork);
+    </script>
+    <!-- Validate book 7            -->
+    <script>
+      getBooks(4, "?avail=true");
+    </script>
+    <!-- should be 4 avail          -->
+    <script>
+      getBooks(3, "?avail=false");
+    </script>
+    <!-- should be 3 checked out    -->
+    <script>
+      getBooks(7, "");
+    </script>
+    <!-- should be 7 total          -->
+
+    <h1>Test the PUT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5 tests</h1>
+
+    <script>
+      putBook("77", checkedout, shouldwork);
+    </script>
+    <!-- check out book 77           -->
+    <script>
+      putBook("88", checkedout, shouldfail);
+    </script>
+    <!-- check out 88, doesn't exist -->
+    <script>
+      getBook("77", checkedout, shouldwork);
+    </script>
+    <!-- confirm 77 checked out      -->
+    <script>
+      getBooks(3, "?avail=true");
+    </script>
+    <!-- should be 3 avail           -->
+    <script>
+      getBooks(4, "?avail=false");
+    </script>
+    <!-- should be 4 checked out     -->
+
+    <h1>Test the DELETE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5 tests</h1>
+
+    <script>
+      deleteBook("77", shouldwork);
+    </script>
+    <!-- delete book 77          -->
+    <script>
+      getBooks(3, "?avail=true");
+    </script>
+    <!-- should be 3 avail       -->
+    <script>
+      getBooks(3, "?avail=false");
+    </script>
+    <!-- should be 3 checked out -->
+    <script>
+      getBooks(6, "");
+    </script>
+    <!-- should be 6 total       -->
+    <script>
+      deleteBook("88", shouldfail);
+    </script>
+    <!-- delete 88, should fail  -->
+  </body>
+</html>
