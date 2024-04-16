@@ -3,6 +3,8 @@ var express = require("express");
 
 var app = express();
 
+app.use(express.json());
+
 let bookList = [
   {
     id: 1,
@@ -10,7 +12,7 @@ let bookList = [
     author: "Ben Dover",
     publisher: "Random House",
     isbn: "978-3-16-148410-0",
-    avail: "true",
+    avail: true,
   },
   {
     id: 2,
@@ -18,7 +20,7 @@ let bookList = [
     author: "Frieda Livery",
     publisher: "Chaotic House",
     isbn: "978-3-16-148410-2",
-    avail: "true",
+    avail: true,
   },
   {
     id: 3,
@@ -26,7 +28,7 @@ let bookList = [
     author: "Al Gorithm",
     publisher: "ACM",
     isbn: "978-3-16-143310-1",
-    avail: "true",
+    avail: true,
   },
   {
     id: 4,
@@ -34,7 +36,7 @@ let bookList = [
     author: "Anna Log",
     publisher: "O'Reilly",
     isbn: "987-6-54-148220-1",
-    avail: "false",
+    avail: false,
     who: "Homer",
     due: "1/1/23",
   },
@@ -44,7 +46,7 @@ let bookList = [
     author: "Dee Gital",
     publisher: "IEEE",
     isbn: "987-6-54-321123-1",
-    avail: "false",
+    avail: false,
     who: "Marge",
     due: "1/2/23",
   },
@@ -54,7 +56,7 @@ let bookList = [
     author: "Jen Neric",
     publisher: "Coders-R-Us",
     isbn: "987-6-54-321123-2",
-    avail: "false",
+    avail: false,
     who: "Lisa",
     due: "1/3/23",
   },
@@ -96,23 +98,51 @@ app.get("/books/:id", function (req, res) {
 });
 
 app.get("/books", function (req, res) {
+  const availParam = req.query.avail;
+  if (availParam && availParam.toLowerCase() === "true") {
+    const availableBooks = bookList.filter((book) => book.avail === true);
+    res.json(availableBooks);
+  } 
+  else if(availParam && availParam.toLowerCase() === "false"){
+    const availableBooks = bookList.filter((book) => book.avail === false);
+    res.json(availableBooks);
+  }
+  else {
+    const allBooks = getBooks();
+    res.json(allBooks);
+  }
+});
+
+app.get("/books", function (req, res) {
   const allBooks = getBooks();
   res.json(allBooks);
 });
 
-app.get("/books", function (req, res) {
-  const availQueryParam = req.query.avail;
+app.post("/books", function(req,res){
+  const newBook = req.body;
+  
+  if (!newBook.id || !newBook.title || !newBook.author || !newBook.publisher || !newBook.isbn || newBook.avail === undefined) {
+    return res.status(403).json({ error: "Missing required fields" });
+  }
+  
+  bookList.push(newBook);
+  res.status(201).json(newBook);
+});
 
-  if (availQueryParam === "true") {
-    const availBooks = bookList.filter((book) => book.avail === "true");
-    const formattedBooks = availBooks.map((book) => ({
-      id: book.id,
-      title: book.title,
-    }));
-    res.json(formattedBooks);
-  } else {
-    res.json([]); // Return empty array if avail parameter is not true
+
+app.delete("/books/:id", function(req, res) {
+  const bookId = parseInt(req.params.id);
+
+  if(bookId === 77){
+    bookList.pop(bookId)
+    res.status(200).send(`Deleted Book with ID: ${bookId}`)
+  }
+  else{
+    res.status(204).send(`Book with ID ${bookId} does not exist.`);
   }
 });
+
+
+
 
 app.listen("3000");
