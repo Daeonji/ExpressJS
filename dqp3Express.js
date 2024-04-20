@@ -1,4 +1,3 @@
-const e = require("express");
 var express = require("express");
 
 var app = express();
@@ -7,7 +6,7 @@ app.use(express.json());
 
 let bookList = [
   {
-    id: 1,
+    id: "1",
     title: "Reactions in React",
     author: "Ben Dover",
     publisher: "Random House",
@@ -15,7 +14,7 @@ let bookList = [
     avail: true,
   },
   {
-    id: 2,
+    id: "2",
     title: "Express-sions",
     author: "Frieda Livery",
     publisher: "Chaotic House",
@@ -23,7 +22,7 @@ let bookList = [
     avail: true,
   },
   {
-    id: 3,
+    id: "3",
     title: "Restful REST",
     author: "Al Gorithm",
     publisher: "ACM",
@@ -31,7 +30,7 @@ let bookList = [
     avail: true,
   },
   {
-    id: 4,
+    id: "4",
     title: "See Essess",
     author: "Anna Log",
     publisher: "O'Reilly",
@@ -41,7 +40,7 @@ let bookList = [
     due: "1/1/23",
   },
   {
-    id: 5,
+    id: "5",
     title: "Scripting in JS",
     author: "Dee Gital",
     publisher: "IEEE",
@@ -51,15 +50,15 @@ let bookList = [
     due: "1/2/23",
   },
   {
-    id: 6,
+    id: "6",
     title: "Be An HTML Hero",
     author: "Jen Neric",
     publisher: "Coders-R-Us",
     isbn: "987-6-54-321123-2",
     avail: false,
     who: "Lisa",
-    due: "1/3/23",
-  },
+    due: "1/3/23"
+  }
 ];
 
 app.use(function (req, res, next) {
@@ -77,45 +76,26 @@ app.use(function (req, res, next) {
   else next();
 });
 
-function getBooks() {
-  const allBooks = [];
-  bookList.forEach((book) => {
-    allBooks.push(book);
-  });
-  return allBooks;
-}
+app.get("/books", function (req, res) {
+  const availParam = req.query.avail;
+  if (availParam !== undefined) {
+    const avail = availParam.toLowerCase() === "true";
+    const filteredBooks = bookList.filter((book) => book.avail === avail);
+    res.json(filteredBooks);
+  } else {
+    res.json(bookList);
+  }
+});
 
 app.get("/books/:id", function (req, res) {
-  const bookId = parseInt(req.params.id);
+  const bookId = req.params.id;
   const book = bookList.find((book) => book.id === bookId);
 
   if (book) {
     res.json(book);
-    console.log(req.params.id);
   } else {
     res.sendStatus(404);
   }
-});
-
-app.get("/books", function (req, res) {
-  const availParam = req.query.avail;
-  if (availParam && availParam.toLowerCase() === "true") {
-    const availableBooks = bookList.filter((book) => book.avail === true);
-    res.json(availableBooks);
-  } 
-  else if(availParam && availParam.toLowerCase() === "false"){
-    const availableBooks = bookList.filter((book) => book.avail === false);
-    res.json(availableBooks);
-  }
-  else {
-    const allBooks = getBooks();
-    res.json(allBooks);
-  }
-});
-
-app.get("/books", function (req, res) {
-  const allBooks = getBooks();
-  res.json(allBooks);
 });
 
 app.post("/books", function(req,res){
@@ -130,14 +110,29 @@ app.post("/books", function(req,res){
 });
 
 
-app.delete("/books/:id", function(req, res) {
-  const bookId = parseInt(req.params.id);
+app.put("/books/:id", function (req, res) {
+  const bookId = req.params.id;
+  const avail = req.body.avail;
+  const who = req.body.who;
+  const book = bookList.find((book) => book.id === bookId);
 
-  if(bookId === 77){
-    bookList.pop(bookId)
-    res.status(200).send(`Deleted Book with ID: ${bookId}`)
+  if (book) {
+    book.avail = avail;
+    book.who = who;
+    res.json(book);
+  } else {
+    res.sendStatus(404);
   }
-  else{
+});
+
+app.delete("/books/:id", function(req, res) {
+  const bookId = req.params.id;
+  const index = bookList.findIndex((book) => book.id === bookId);
+
+  if(index !== -1) {
+    bookList.splice(index, 1);
+    res.status(200).send(`Deleted Book with ID: ${bookId}`);
+  } else {
     res.status(204).send(`Book with ID ${bookId} does not exist.`);
   }
 });
